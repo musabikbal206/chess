@@ -327,6 +327,9 @@
         };
 
         const PIECES = { w: { k:'♚', q:'♛', r:'♜', b:'♝', n:'♞', p:'♟' }, b: { k:'♚', q:'♛', r:'♜', b:'♝', n:'♞', p:'♟' } };
+        // For standard notation (SAN)
+        const SAN_PIECES = { k:'K', q:'Q', r:'R', b:'B', n:'N', p:'' };
+
         const COLS = ['a','b','c','d','e','f','g','h'];
         const MG_PST = {
             p: [ 0,  0,  0,  0,  0,  0,  0,  0, 50, 50, 50, 50, 50, 50, 50, 50, 10, 10, 20, 30, 30, 20, 10, 10, 5,  5, 10, 25, 25, 10,  5,  5, 0,  0,  0, 20, 20,  0,  0,  0, 5, -5,-10,  0,  0,-10, -5,  5, 5, 10, 10,-20,-20, 10, 10,  5, 0,  0,  0,  0,  0,  0,  0,  0],
@@ -343,7 +346,7 @@
             "rnbqkbnr/pppp1ppp/8/4p3/4P3/8/PPPP1PPP/RNBQKBNR w KQkq": [{r:7,c:6,to:{r:5,c:5}}, {r:7,c:1,to:{r:5,c:2}}],
             "rnbqkbnr/pppp1ppp/8/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R b KQkq": [{r:0,c:1,to:{r:2,c:2}}],
             "rnbqkbnr/pp1ppppp/8/2p5/4P3/8/PPPP1PPP/RNBQKBNR w KQkq": [{r:7,c:6,to:{r:5,c:5}}],
-            "rnbqkbnr/pppppppp/8/8/3P4/8/PPP1PPPP/RNBQKBNR b KQkq": [{r:1,c:3,to:{r:3,c:3}}, {r:0,c:6,to:{r:2,c:5}}],
+            "rnbqkbnr/pppppppp/8/8/3P4/8/PPP1PPPP/RNBQKBNR w KQkq": [{r:1,c:3,to:{r:3,c:3}}, {r:0,c:6,to:{r:2,c:5}}],
             "rnbqkbnr/ppp1pppp/8/3p4/3P4/8/PPP1PPPP/RNBQKBNR w KQkq": [{r:6,c:2,to:{r:4,c:2}}],
             "rnbqkb1r/pppppppp/5n2/8/3P4/8/PPP1PPPP/RNBQKBNR w KQkq": [{r:6,c:2,to:{r:4,c:2}}],
         };
@@ -667,14 +670,34 @@
             }
             move(from, to, promoType=null) {
                 if(to.isPromo && !promoType) { this.promo={from, to}; document.getElementById('promotion-modal').classList.add('active'); return; }
-                const p=this.board[from.r][from.c], cap=this.board[to.r][to.c];
-                const note = this.genNote(from, to, p, cap, to.castle, to.isPromo, promoType);
+                
+                // 1. Generate Basic Notation (before move)
+                const p = this.board[from.r][from.c];
+                const cap = this.board[to.r][to.c];
+                let note = this.genNote(from, to, p, cap, to.castle, to.isPromo, promoType);
                 
                 // Update FEN clocks
                 if (p[1] === 'p' || cap) this.halfMove = 0; else this.halfMove++;
                 if (this.turn === 'b') this.fullMove++;
 
+                // 2. Execute Move
                 this.executeMoveSilent(from, to, promoType||'q');
+                
+                // 3. Check for Check/Mate (after move)
+                const opp = this.turn==='w'?'b':'w';
+                const inCheck = this.isCheck(opp, this.board);
+                
+                // Check if opponent has no moves
+                let canMove = false;
+                for(let r=0;r<8;r++) for(let c=0;c<8;c++) {
+                    if(this.board[r][c] && this.board[r][c][0]===opp && this.getValidMoves(r,c).length) canMove = true;
+                }
+                
+                if (inCheck) {
+                    note += canMove ? "+" : "#";
+                }
+
+                // 4. Store History
                 this.hist.push(note);
                 this.fullHistory.push({
                     board: this.cloneBoard(this.board),
@@ -683,13 +706,19 @@
                     move: {from, to, note}, eval: 0, anno: '',
                     hm: this.halfMove, fm: this.fullMove
                 });
-                this.turn = this.turn==='w'?'b':'w';
-                this.lastMove={from, to};
-                let canMove=false; for(let r=0;r<8;r++) for(let c=0;c<8;c++) if(this.board[r][c] && this.board[r][c][0]===this.turn && this.getValidMoves(r,c).length) canMove=true;
-                const check = this.isCheck(this.turn, this.board);
-                this.sel=null; this.moves=[]; this.render();
-                if(!canMove) this.end(check ? (this.turn==='w'?'b':'w') : null, check?"Checkmate":"Stalemate");
-                else if(this.mode==='pvc' && this.turn!==this.playerSide) setTimeout(()=>this.botMove(), 100);
+
+                // 5. Switch Turn
+                this.turn = opp;
+                this.lastMove = {from, to};
+                this.sel = null; this.moves = [];
+                this.render();
+
+                // 6. End Game or Bot Move
+                if (!canMove) {
+                    this.end(inCheck ? (this.turn==='w'?'b':'w') : null, inCheck?"Checkmate":"Stalemate");
+                } else if (this.mode === 'pvc' && this.turn !== this.playerSide) {
+                    setTimeout(() => this.botMove(), 100);
+                }
             }
             executeMoveSilent(from, to, pt='q') {
                 const p=this.board[from.r][from.c]; 
@@ -705,11 +734,67 @@
                 if(res.move) this.move(res.move.from, res.move.to, res.move.to.isPromo?'q':null);
             }
             finalizePromo(t) { const {from, to}=this.promo; document.getElementById('promotion-modal').classList.remove('active'); this.promo=null; this.move(from, to, t); }
-            genNote(f, t, p, c, castle, promo, pt) {
-                if(castle) return castle==='k'?"O-O":"O-O-O";
-                const isEp = p[1]==='p' && f.c !== t.c && !c;
-                return (p[1]==='p'?(f.c !== t.c ?COLS[f.c]+"x":""):(PIECES[p[0]][p[1]].toUpperCase().replace(/[^A-Z]/g,'')+(c?"x":""))) + COLS[t.c]+(8-t.r) + (isEp?" e.p.":"") + (promo?"="+pt.toUpperCase():"");
+            
+            genNote(from, to, p, capture, castle, promo, pt) {
+                // Castling
+                if (castle) return castle === 'k' ? "O-O" : "O-O-O";
+
+                const type = p[1];
+                const color = p[0];
+                const destCoords = COLS[to.c] + (8 - to.r);
+                const isCapture = capture || (type === 'p' && from.c !== to.c); // EP is a capture
+                
+                // Pawn moves
+                if (type === 'p') {
+                    if (isCapture) {
+                        return COLS[from.c] + "x" + destCoords + (promo ? "=" + pt.toUpperCase() : "");
+                    } else {
+                        return destCoords + (promo ? "=" + pt.toUpperCase() : "");
+                    }
+                }
+
+                // Piece moves with Disambiguation
+                const pieceChar = SAN_PIECES[type]; // K, Q, R, B, N
+                
+                let disambig = "";
+                const candidates = [];
+                
+                // Find all same pieces of same color
+                for(let r=0; r<8; r++) {
+                    for(let c=0; c<8; c++) {
+                        const sq = this.board[r][c];
+                        if (sq && sq[0] === color && sq[1] === type) {
+                            if (r === from.r && c === from.c) continue; // Skip self
+                            // Check if this candidate can move to 'to'
+                            const moves = this.getValidMoves(r, c);
+                            if (moves.some(m => m.r === to.r && m.c === to.c)) {
+                                candidates.push({r, c});
+                            }
+                        }
+                    }
+                }
+
+                if (candidates.length > 0) {
+                    let fileMatch = false;
+                    let rankMatch = false;
+                    
+                    for (const cand of candidates) {
+                        if (cand.c === from.c) fileMatch = true;
+                        if (cand.r === from.r) rankMatch = true;
+                    }
+
+                    if (!fileMatch) {
+                        disambig = COLS[from.c];
+                    } else if (!rankMatch) {
+                        disambig = (8 - from.r);
+                    } else {
+                        disambig = COLS[from.c] + (8 - from.r);
+                    }
+                }
+
+                return pieceChar + disambig + (isCapture ? "x" : "") + destCoords;
             }
+
             updateEvalBar(score) {
                 const s = (typeof score === 'number') ? score : 0;
                 let pct = 50 + (s / 1500) * 50; pct = Math.max(5, Math.min(95, pct)); 
@@ -829,11 +914,16 @@
 
                 try {
                     for (let i = 1; i < this.fullHistory.length; i++) {
+                        // Pause briefly each step to allow UI to update
+                        await new Promise(r => setTimeout(r, 10));
+
                         const prevStep = this.fullHistory[i-1];
                         const currStep = this.fullHistory[i];
                         tempGame.board = this.cloneBoard(prevStep.board);
                         tempGame.castling = JSON.parse(JSON.stringify(prevStep.castling));
                         tempGame.epSquare = prevStep.epSquare ? {...prevStep.epSquare} : null;
+                        
+                        // If i=1 (first move), it was White's turn to move.
                         const turn = (i % 2 !== 0) ? 'w' : 'b';
                         
                         const fen = generateSimpleFEN(tempGame.board, turn, tempGame.castling);
@@ -848,12 +938,20 @@
                         else {
                             const bestObj = anaEngine.getBestMove(tempGame, turn);
                             const movePlayed = currStep.move;
-                            tempGame.executeMoveSilent(movePlayed.from, movePlayed.to, 'q');
-                            const afterObj = anaEngine.minimax(tempGame, 2, -Infinity, Infinity, turn==='b', turn==='w'?'b':'w');
-                            currStep.eval = afterObj.score;
                             
-                            if (bestObj && afterObj) {
-                                let diff = (turn === 'w') ? (bestObj.score - afterObj.score) : (afterObj.score - bestObj.score);
+                            // Prevent crash if game ended in mate (bestObj might have no move)
+                            if (bestObj && bestObj.move) {
+                                tempGame.executeMoveSilent(movePlayed.from, movePlayed.to, 'q');
+                                const afterObj = anaEngine.minimax(tempGame, 2, -Infinity, Infinity, turn==='b', turn==='w'?'b':'w');
+                                currStep.eval = afterObj.score;
+                                
+                                let diff = 0;
+                                // If turn was White, Positive Diff means White lost advantage (Bad).
+                                // If turn was Black, Positive Diff means Black lost advantage (Bad).
+                                // score is always White-relative.
+                                if (turn === 'w') diff = bestObj.score - afterObj.score; 
+                                else diff = afterObj.score - bestObj.score;
+
                                 if (diff < 20 && movePlayed.from.r === bestObj.move.from.r && movePlayed.to.r === bestObj.move.to.r) currStep.anno = '!!';
                                 else if (diff < 50) currStep.anno = '';
                                 else if (diff < 150) currStep.anno = '!';
@@ -861,7 +959,6 @@
                                 else currStep.anno = 'X';
                             }
                         }
-                        if (i % 2 === 0) await new Promise(r => setTimeout(r, 0));
                     }
                 } catch (e) {
                     console.error("Analysis interrupted", e);
