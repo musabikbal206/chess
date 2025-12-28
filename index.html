@@ -8,9 +8,7 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <title>Chessy: Pro</title>
     
-    <!-- LINK TO MANIFEST -->
     <link rel="manifest" href="manifest.json">
-    <!-- IOS ICON SUPPORT (Updated to Pawn) -->
     <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/44/44205.png">
     
     <style>
@@ -28,6 +26,8 @@
             --highlight-move: rgba(255, 255, 50, 0.5);
             --highlight-last: rgba(155, 255, 50, 0.5);
             --highlight-check: #ff4444;
+            --book-color: #3b82f6;
+            --hint-color: #26c281;
         }
 
         /* Theme Classes */
@@ -37,16 +37,8 @@
 
         /* Piece Styles */
         .piece { 
-            z-index: 2; 
-            width: 100%; 
-            height: 100%; 
-            display: flex; 
-            justify-content: center; 
-            align-items: center; 
-            transition: transform 0.3s; 
-            font-weight: normal;
-            line-height: 1; 
-            padding-bottom: 5px; 
+            z-index: 2; width: 100%; height: 100%; display: flex; justify-content: center; align-items: center; 
+            transition: transform 0.3s; font-weight: normal; line-height: 1; padding-bottom: 5px; 
         }
         .piece.white { color: #fff; text-shadow: 0 0 2px #000, 1px 1px 2px #000; }
         .piece.black { color: #111; text-shadow: 0 0 1px #fff; }
@@ -55,80 +47,54 @@
         * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
         
         body { 
-            font-family: 'Segoe UI', system-ui, sans-serif; 
-            background-color: var(--bg-color); 
-            color: var(--text-main); 
-            margin: 0; 
-            display: flex; 
-            flex-direction: column; 
-            align-items: center; 
-            justify-content: center; 
-            height: 100dvh; 
-            overflow: hidden; 
+            font-family: 'Segoe UI', system-ui, sans-serif; background-color: var(--bg-color); color: var(--text-main); 
+            margin: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100dvh; overflow: hidden; 
         }
 
-        /* Layout */
-        .game-area { 
-            display: none; 
-            flex-direction: column; 
-            align-items: center; 
-            width: 100%; 
-            height: 100%; 
-            max-width: 600px; 
-            padding: 5px; 
-        }
+        .game-area { display: none; flex-direction: column; align-items: center; width: 100%; height: 100%; max-width: 600px; padding: 5px; }
         .game-area.active { display: flex; }
 
         .game-main-row { display: flex; gap: 10px; width: 100%; max-width: 80vh; aspect-ratio: 1; margin-bottom: 5px; align-items: stretch; }
         
-        /* Eval Bar */
         .eval-bar-container {
-            width: 20px; background: #333; border-radius: 4px; overflow: hidden; display: flex; flex-direction: column-reverse;
+            width: 20px; min-width: 20px; 
+            background: #333; border-radius: 4px; overflow: hidden; display: flex; flex-direction: column-reverse;
             border: 2px solid var(--panel-bg); position: relative; visibility: hidden; opacity: 0; transition: opacity 0.5s ease;
         }
         .eval-bar-container.visible { visibility: visible; opacity: 1; }
         .eval-fill { width: 100%; height: 50%; background: #fff; transition: height 0.3s ease-out; }
         .eval-score { position: absolute; width: 100%; text-align: center; font-size: 9px; font-weight: bold; color: #555; mix-blend-mode: difference; bottom: 5px; z-index: 2; }
 
-        /* Board */
         .board-container { flex: 1; border: 6px solid var(--board-border); border-radius: 4px; position: relative; }
         .board-grid { display: grid; grid-template-columns: repeat(8, 1fr); grid-template-rows: repeat(8, 1fr); width: 100%; height: 100%; background: var(--board-border); }
         
-        .square { 
-            position: relative; 
-            display: flex; 
-            justify-content: center; 
-            align-items: center; 
-            font-size: clamp(32px, 11vw, 70px); 
-            cursor: pointer; 
-        }
+        .square { position: relative; display: flex; justify-content: center; align-items: center; font-size: clamp(32px, 11vw, 70px); cursor: pointer; }
         .square.light { background-color: var(--square-light); }
         .square.dark { background-color: var(--square-dark); }
-        
         .square.selected { background-color: var(--highlight-move) !important; }
         .square.last-move { background-color: var(--highlight-last); }
         .square.in-check { background-color: var(--highlight-check) !important; }
         .square.valid-move::after { content: ''; position: absolute; width: 22%; height: 22%; background: rgba(0,0,0,0.25); border-radius: 50%; }
         .square.valid-capture::after { content: ''; position: absolute; width: 85%; height: 85%; border: 5px solid rgba(0,0,0,0.25); border-radius: 50%; }
 
-        /* Annotations */
+        .board-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 10; }
+        
         .annotation {
             position: absolute; top: -8px; right: -8px; width: 26px; height: 26px; border-radius: 50%;
-            display: flex; justify-content: center; align-items: center; font-size: 16px; font-weight: 900;
+            display: flex; justify-content: center; align-items: center; font-size: 14px; font-weight: 900;
             color: white; box-shadow: 0 2px 4px rgba(0,0,0,0.5); z-index: 5;
             animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); border: 2px solid white;
         }
         @keyframes popIn { from { transform: scale(0); } to { transform: scale(1); } }
         .anno-brilliant { background: #26c281; } .anno-good { background: #81b214; }
         .anno-mistake { background: #f59f00; } .anno-blunder { background: #e03131; }
+        .anno-book { background: var(--book-color); font-size: 16px; }
 
-        /* Clocks */
         .clock-container { display: flex; justify-content: space-between; width: 100%; max-width: 80vh; margin-bottom: 5px; }
         .player-info { background: var(--panel-bg); padding: 5px 12px; border-radius: 6px; display: flex; align-items: center; gap: 10px; min-width: 100px; border: 2px solid transparent; }
         .player-info.active { border-color: var(--accent); background: #3a3a3a; }
         .clock-time { font-family: monospace; font-size: 1.4rem; font-weight: bold; }
 
-        /* History */
         .history-panel { background: var(--panel-bg); width: 100%; max-width: 80vh; flex: 1; min-height: 40px; border-radius: 6px; overflow-y: auto; display: flex; flex-direction: column; padding: 5px; font-family: monospace; margin-bottom: 10px; }
         .history-row { display: grid; grid-template-columns: 40px 1fr 1fr; padding: 4px; border-bottom: 1px solid #333; font-size: 0.9rem; cursor: pointer; }
         .history-row:hover { background: rgba(255,255,255,0.05); }
@@ -136,8 +102,8 @@
         .history-num { color: var(--text-muted); } .history-move { color: #ddd; }
         .hist-anno { display: inline-block; margin-left:5px; font-weight:bold; }
         .hist-anno.good { color: #81b214; } .hist-anno.bad { color: #f59f00; } .hist-anno.blunder { color: #e03131; }
+        .hist-anno.book { color: var(--book-color); font-size: 1.1em; }
 
-        /* Menus */
         .overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15,15,15,0.96); z-index: 100; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 15px; overflow-y: auto; padding: 20px; }
         .overlay.hidden { display: none; }
         h1 { margin: 0 0 10px 0; color: var(--accent); font-size: 3rem; text-transform: uppercase; letter-spacing: 2px; text-shadow: 0 0 20px rgba(97, 175, 239, 0.2); }
@@ -152,33 +118,20 @@
         button:hover { background: #3d3d3d; color: #fff; }
         button.selected { background: var(--accent); color: #111; font-weight: bold; border-color: var(--accent); box-shadow: 0 0 15px var(--accent-glow); }
         
-        button.primary { 
-            background: linear-gradient(135deg, var(--accent), #4fa3e0); 
-            color: #111; font-weight: 800; padding: 18px 40px; font-size: 1.4rem; border: none; margin-top: 10px; width: 100%;
-            border-radius: 8px; text-transform: uppercase; letter-spacing: 1px;
-            box-shadow: 0 4px 20px rgba(97, 175, 239, 0.4);
-        }
+        button.primary { background: linear-gradient(135deg, var(--accent), #4fa3e0); color: #111; font-weight: 800; padding: 18px 40px; font-size: 1.4rem; border: none; margin-top: 10px; width: 100%; border-radius: 8px; text-transform: uppercase; letter-spacing: 1px; box-shadow: 0 4px 20px rgba(97, 175, 239, 0.4); }
         button.primary:hover { transform: translateY(-2px); box-shadow: 0 6px 25px rgba(97, 175, 239, 0.5); }
         
-        .quit-btn { background: var(--danger); color: white; border-color: var(--danger); }
-        .quit-btn:hover { background: #ff4444; }
-        .undo-btn { background: #d69e2e; color: white; border-color: #d69e2e; }
-        .undo-btn:hover { background: #f0b33c; }
+        .quit-btn { background: var(--danger); color: white; border-color: var(--danger); } .quit-btn:hover { background: #ff4444; }
+        .undo-btn { background: #d69e2e; color: white; border-color: #d69e2e; } .undo-btn:hover { background: #f0b33c; }
+        .export-btn { background: #6c757d; color: white; border-color: #6c757d; } .export-btn:hover { background: #5a6268; }
 
-        /* Language Toggle */
-        #lang-toggle {
-            position: absolute;
-            top: -50px;
-            right: 0;
-            background: transparent;
-            border: 1px solid #444;
-            font-size: 1.5rem;
-            padding: 5px 10px;
-            border-radius: 8px;
-        }
+        .suggest-btn { background: var(--hint-color); color: #fff; width: 100%; margin-bottom: 5px; border-color: var(--hint-color); display: none; }
+        .suggest-btn.visible { display: block; }
+        .suggest-btn:hover { background: #1a9e69; }
 
-        /* Nav Buttons */
-        #nav-controls { display: none; gap: 10px; width: 100%; justify-content: center; margin-top: 5px; }
+        #lang-toggle { position: absolute; top: -50px; right: 0; background: transparent; border: 1px solid #444; font-size: 1.5rem; padding: 5px 10px; border-radius: 8px; }
+
+        #nav-controls { display: none; gap: 10px; width: 100%; justify-content: center; margin-top: 5px; flex-wrap: wrap; }
         #nav-controls.visible { display: flex; }
         .nav-btn { font-size: 1.2rem; padding: 5px 20px; font-weight: bold; background: var(--panel-bg); color: white; }
         .nav-btn:hover { background: #444; }
@@ -187,26 +140,18 @@
         #promotion-modal.active { display: flex; }
         .promo-btn { font-size: 35px; background: #eee; width: 50px; height: 50px; display: flex; justify-content: center; align-items: center; cursor: pointer; color: black; border-radius: 4px; }
         
-        /* Control Bar Fixes for Mobile */
-        .control-bar { 
-            display: flex; 
-            gap: 10px; 
-            width: 100%; 
-            max-width: 80vh; 
-            padding-bottom: env(safe-area-inset-bottom);
-            margin-bottom: 5px;
-            flex-shrink: 0;
-        }
-        .control-bar button { 
-            flex: 1; 
-            font-weight: 600;
-            padding: 15px 5px; 
-        }
+        .control-bar { display: flex; gap: 10px; width: 100%; max-width: 80vh; padding-bottom: env(safe-area-inset-bottom); margin-bottom: 5px; flex-shrink: 0; }
+        .control-bar button { flex: 1; font-weight: 600; padding: 15px 5px; }
 
         .loader { border: 5px solid #333; border-top: 5px solid var(--accent); border-radius: 50%; width: 50px; height: 50px; animation: spin 1s linear infinite; margin-bottom: 20px; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
         #loading-overlay { z-index: 150; background: rgba(0,0,0,0.85); justify-content: center; }
         .hidden-opt { display: none; }
+        
+        /* Export Modal Specifics */
+        .export-area { width: 100%; height: 100px; background: #222; color: #ddd; border: 1px solid #444; border-radius: 6px; padding: 10px; font-family: monospace; font-size: 0.85rem; resize: none; margin-bottom: 10px; }
+        .copy-row { display: flex; gap: 10px; margin-bottom: 15px; }
+        .copy-row button { flex: 1; padding: 12px; font-size: 0.9rem; }
     </style>
 </head>
 <body class="theme-wood style-classic">
@@ -215,7 +160,6 @@
         <h1>Chessy</h1>
         <div class="menu-container">
             <button id="lang-toggle" onclick="app.toggleLanguage()">🇹🇷</button>
-            
             <div class="menu-section">
                 <h3 data-key="gameSetup">Game Setup</h3>
                 <div class="btn-group" style="margin-bottom: 15px;">
@@ -253,7 +197,6 @@
         </div>
     </div>
 
-    <!-- Resign Confirmation Modal -->
     <div id="resign-modal" class="overlay hidden" style="background: rgba(0,0,0,0.8);">
         <div class="menu-section" style="max-width:300px; padding: 20px;">
             <h2 style="margin:0 0 15px 0; color:white; font-size:1.5rem;" data-key="resignTitle">Resign Game?</h2>
@@ -265,17 +208,41 @@
         </div>
     </div>
 
+    <!-- Export Modal -->
+    <div id="export-modal" class="overlay hidden" style="background: rgba(0,0,0,0.9);">
+        <div class="menu-section" style="width:90%; max-width:500px; padding: 20px;">
+            <h2 style="margin:0 0 15px 0; color:var(--accent); font-size:1.5rem;">Export Game</h2>
+            
+            <h3 style="text-align:left; color:#888; margin-bottom:5px;">PGN</h3>
+            <textarea id="pgn-area" class="export-area" readonly></textarea>
+            <button onclick="app.copyPGN()" style="width:100%; margin-bottom:20px;">Copy PGN</button>
+
+            <h3 style="text-align:left; color:#888; margin-bottom:5px;">FEN</h3>
+            <div class="copy-row">
+                <input type="text" id="fen-area" class="export-area" style="height:40px; margin-bottom:0;" readonly>
+                <button onclick="app.copyFEN()" style="width:auto; white-space:nowrap;">Copy FEN</button>
+            </div>
+
+            <button onclick="document.getElementById('export-modal').classList.add('hidden')" style="background:#444; margin-top:10px;">Close</button>
+        </div>
+    </div>
+
     <div id="game-over-modal" class="overlay hidden">
         <h2 id="end-title" data-key="gameOver">Game Over</h2>
         <p id="end-reason" style="color:#ccc"></p>
-        <button class="primary" onclick="app.startAnalysis()" style="background:#26c281; color:white; border:none; box-shadow: 0 4px 15px rgba(38,194,129,0.3); max-width: 300px;" data-key="analyze">Analyze Game</button>
-        <button onclick="app.showMainMenu()" style="padding:10px 30px; margin-top:10px" data-key="mainMenu">Main Menu</button>
+        <div style="display:flex; gap:10px; width:100%; max-width:300px; flex-direction: column;">
+             <button class="primary" onclick="app.startAnalysis()" style="background:#26c281; color:white; border:none; width:100%;" data-key="analyze">Analyze Game</button>
+             <div style="display:flex; gap:10px; width:100%;">
+                <button onclick="app.showExportMenu()" style="flex:1;">Export PGN/FEN</button>
+                <button onclick="app.showMainMenu()" style="flex:1;" data-key="mainMenu">Menu</button>
+             </div>
+        </div>
     </div>
 
     <div id="loading-overlay" class="overlay hidden">
         <div class="loader"></div>
         <h2 style="font-size:1.4rem; color: white;" data-key="analyzing">Deep Analyzing...</h2>
-        <p style="color:#aaa" data-key="calc">Engine Level 8 Calculation</p>
+        <p style="color:#aaa" data-key="calc">Checking Opening Book & Calculating...</p>
     </div>
 
     <div id="game-area" class="game-area">
@@ -291,6 +258,15 @@
 
             <div class="board-container">
                 <div id="board" class="board-grid"></div>
+                <svg id="board-overlay" class="board-overlay" viewBox="0 0 100 100" preserveAspectRatio="none">
+                    <defs>
+                        <marker id="arrowhead" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
+                            <path d="M0,0 L0,6 L6,3 z" fill="#26c281" />
+                        </marker>
+                    </defs>
+                    <g id="arrow-layer"></g>
+                </svg>
+                
                 <div id="promotion-modal">
                     <div class="promo-btn" data-role="q">♛</div>
                     <div class="promo-btn" data-role="r">♜</div>
@@ -305,30 +281,33 @@
         </div>
 
         <div id="nav-controls">
-            <button class="nav-btn" onclick="app.navStart()">|&lt;</button>
-            <button class="nav-btn" onclick="app.navPrev()">&lt;</button>
-            <button class="nav-btn" onclick="app.navNext()">&gt;</button>
-            <button class="nav-btn" onclick="app.navEnd()">&gt;|</button>
+            <div style="width:100%; display:flex; gap:10px; justify-content:center;">
+                <button class="nav-btn" onclick="app.navStart()">|&lt;</button>
+                <button class="nav-btn" onclick="app.navPrev()">&lt;</button>
+                <button class="nav-btn" onclick="app.navNext()">&gt;</button>
+                <button class="nav-btn" onclick="app.navEnd()">&gt;|</button>
+            </div>
+            <button id="suggest-btn" class="suggest-btn" onclick="app.suggestMove()">💡 Suggest Move</button>
         </div>
 
         <div id="history-panel" class="history-panel"></div>
 
         <div class="control-bar">
             <button class="quit-btn" onclick="app.showMainMenu()" data-key="quit">Quit</button>
+            <button class="export-btn" onclick="app.showExportMenu()">Export</button>
             <button class="undo-btn" onclick="app.undoMove()" data-key="undo">Undo</button>
             <button onclick="app.promptResign()" data-key="resign">Resign</button>
         </div>
     </div>
 
     <script>
-        // --- TRANSLATION DICTIONARY ---
         const I18N = {
             en: {
                 gameSetup: "Game Setup", pvp: "Human vs Human", pvc: "Play vs Bot", botLevel: "Bot Level",
                 timeControl: "Time Control", boardStyle: "Board Style", wood: "Wood", sea: "Sea", dark: "Dark",
                 flip: "2 Player Flip", start: "START GAME", opponent: "Opponent", you: "You",
                 quit: "Quit", undo: "Undo", resign: "Resign", gameOver: "Game Over", analyze: "Analyze Game",
-                mainMenu: "Main Menu", analyzing: "Deep Analyzing...", calc: "Engine Level 8 Calculation",
+                mainMenu: "Main Menu", analyzing: "Deep Analyzing...", calc: "Checking Opening Book & Calculation",
                 resignTitle: "Resign Game?", resignConfirm: "Are you sure you want to give up?",
                 yesResign: "Yes, Resign", cancel: "Cancel",
                 whiteWon: "White Won", blackWon: "Black Won", draw: "Draw", resigned: "Resigned",
@@ -339,7 +318,7 @@
                 timeControl: "Süre Kontrolü", boardStyle: "Tahta Stili", wood: "Ahşap", sea: "Deniz", dark: "Koyu",
                 flip: "2. Oyuncu Döndür", start: "OYUNU BAŞLAT", opponent: "Rakip", you: "Sen",
                 quit: "Çık", undo: "Geri Al", resign: "Teslim Ol", gameOver: "Oyun Bitti", analyze: "Oyunu Analiz Et",
-                mainMenu: "Ana Menü", analyzing: "Derin Analiz...", calc: "Motor Seviye 8 Hesaplama",
+                mainMenu: "Ana Menü", analyzing: "Derin Analiz...", calc: "Açılış Kitabı & Hesaplama",
                 resignTitle: "Teslim Ol?", resignConfirm: "Pes etmek istediğine emin misin?",
                 yesResign: "Evet, Teslim Ol", cancel: "İptal",
                 whiteWon: "Beyaz Kazandı", blackWon: "Siyah Kazandı", draw: "Berabere", resigned: "Teslim Oldu",
@@ -349,49 +328,145 @@
 
         const PIECES = { w: { k:'♚', q:'♛', r:'♜', b:'♝', n:'♞', p:'♟' }, b: { k:'♚', q:'♛', r:'♜', b:'♝', n:'♞', p:'♟' } };
         const COLS = ['a','b','c','d','e','f','g','h'];
-        const VALUES = { p:100, n:320, b:330, r:500, q:900, k:20000 };
-        const PST = {
-            p: [0,0,0,0,0,0,0,0, 50,50,50,50,50,50,50,50, 10,10,20,30,30,20,10,10, 5,5,10,25,25,10,5,5, 0,0,0,20,20,0,0,0, 5,-5,-10,0,0,-10,-5,5, 5,10,10,-20,-20,10,10,5, 0,0,0,0,0,0,0,0],
-            n: [-50,-40,-30,-30,-30,-30,-40,-50, -40,-20,0,0,0,0,-20,-40, -30,0,10,15,15,10,0,-30, -30,5,15,20,20,15,5,-30, -30,0,15,20,20,15,0,-30, -30,5,10,15,15,10,5,-30, -40,-20,0,5,5,0,-20,-40, -50,-40,-30,-30,-30,-40,-50]
+        const MG_PST = {
+            p: [ 0,  0,  0,  0,  0,  0,  0,  0, 50, 50, 50, 50, 50, 50, 50, 50, 10, 10, 20, 30, 30, 20, 10, 10, 5,  5, 10, 25, 25, 10,  5,  5, 0,  0,  0, 20, 20,  0,  0,  0, 5, -5,-10,  0,  0,-10, -5,  5, 5, 10, 10,-20,-20, 10, 10,  5, 0,  0,  0,  0,  0,  0,  0,  0],
+            n: [-50,-40,-30,-30,-30,-30,-40,-50,-40,-20,  0,  0,  0,  0,-20,-40,-30,  0, 10, 15, 15, 10,  0,-30,-30,  5, 15, 20, 20, 15,  5,-30,-30,  0, 15, 20, 20, 15,  0,-30,-30,  5, 10, 15, 15, 10,  5,-30,-40,-20,  0,  5,  5,  0,-20,-40,-50,-40,-30,-30,-30,-40,-50],
+            b: [-20,-10,-10,-10,-10,-10,-10,-20,-10,  0,  0,  0,  0,  0,  0,-10,-10,  0,  5, 10, 10,  5,  0,-10,-10,  5,  5, 10, 10,  5,  5,-10,-10,  0, 10, 10, 10, 10,  0,-10,-10, 10, 10, 10, 10, 10, 10,-10,-10,  5,  0,  0,  0,  0,  5,-10,-20,-10,-10,-10,-10,-10,-10,-20],
+            r: [  0,  0,  0,  0,  0,  0,  0,  0,  5, 10, 10, 10, 10, 10, 10,  5, -5,  0,  0,  0,  0,  0,  0, -5, -5,  0,  0,  0,  0,  0,  0, -5, -5,  0,  0,  0,  0,  0,  0, -5, -5,  0,  0,  0,  0,  0,  0, -5, -5,  0,  0,  0,  0,  0,  0, -5,  0,  0,  0,  5,  5,  0,  0,  0],
+            q: [-20,-10,-10, -5, -5,-10,-10,-20,-10,  0,  0,  0,  0,  0,  0,-10,-10,  0,  5,  5,  5,  5,  0,-10, -5,  0,  5,  5,  5,  5,  0, -5,  0,  0,  5,  5,  5,  5,  0, -5,-10,  5,  5,  5,  5,  5,  0,-10,-10,  0,  5,  0,  0,  0,  0,-10,-20,-10,-10, -5, -5,-10,-10,-20],
+            k: [-30,-40,-40,-50,-50,-40,-40,-30,-30,-40,-40,-50,-50,-40,-40,-30,-30,-40,-40,-50,-50,-40,-40,-30,-30,-40,-40,-50,-50,-40,-40,-30,-20,-30,-30,-40,-40,-30,-30,-20,-10,-20,-20,-20,-20,-20,-20,-10, 20, 20,  0,  0,  0,  0, 20, 20, 20, 30, 10,  0,  0, 10, 30, 20]
         };
+        const PIECE_VALS = { p: 100, n: 320, b: 330, r: 500, q: 900, k: 20000 };
+        const OPENING_BOOK = {
+            "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq": [{r:6,c:4,to:{r:4,c:4}}, {r:6,c:3,to:{r:4,c:3}}],
+            "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq": [{r:1,c:2,to:{r:3,c:2}}, {r:1,c:4,to:{r:3,c:4}}],
+            "rnbqkbnr/pppp1ppp/8/4p3/4P3/8/PPPP1PPP/RNBQKBNR w KQkq": [{r:7,c:6,to:{r:5,c:5}}, {r:7,c:1,to:{r:5,c:2}}],
+            "rnbqkbnr/pppp1ppp/8/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R b KQkq": [{r:0,c:1,to:{r:2,c:2}}],
+            "rnbqkbnr/pp1ppppp/8/2p5/4P3/8/PPPP1PPP/RNBQKBNR w KQkq": [{r:7,c:6,to:{r:5,c:5}}],
+            "rnbqkbnr/pppppppp/8/8/3P4/8/PPP1PPPP/RNBQKBNR b KQkq": [{r:1,c:3,to:{r:3,c:3}}, {r:0,c:6,to:{r:2,c:5}}],
+            "rnbqkbnr/ppp1pppp/8/3p4/3P4/8/PPP1PPPP/RNBQKBNR w KQkq": [{r:6,c:2,to:{r:4,c:2}}],
+            "rnbqkb1r/pppppppp/5n2/8/3P4/8/PPP1PPPP/RNBQKBNR w KQkq": [{r:6,c:2,to:{r:4,c:2}}],
+        };
+
+        function generateSimpleFEN(board, turn, castling) {
+            let fen = "";
+            for (let r = 0; r < 8; r++) {
+                let empty = 0;
+                for (let c = 0; c < 8; c++) {
+                    const p = board[r][c];
+                    if (!p) { empty++; }
+                    else {
+                        if (empty > 0) { fen += empty; empty = 0; }
+                        const char = p[1] === 'n' ? 'n' : p[1];
+                        let pieceChar = p[0] === 'w' ? char.toUpperCase() : char.toLowerCase();
+                        fen += pieceChar;
+                    }
+                }
+                if (empty > 0) fen += empty;
+                if (r < 7) fen += "/";
+            }
+            fen += " " + turn;
+            let castleStr = "";
+            if (castling.w.k) castleStr += "K";
+            if (castling.w.q) castleStr += "Q";
+            if (castling.b.k) castleStr += "k";
+            if (castling.b.q) castleStr += "q";
+            if (castleStr === "") castleStr = "-";
+            fen += " " + castleStr;
+            return fen;
+        }
 
         class ChessEngine {
             constructor(level) { this.level = level; }
-            getStaticEval(game) { return this.evaluate(game); }
+            
             getBestMove(game, color) {
-                let depth = (this.level >= 6) ? 3 : (this.level >= 3) ? 2 : 1;
+                const currentFen = generateSimpleFEN(game.board, game.turn, game.castling);
+                if (OPENING_BOOK[currentFen]) {
+                    const moves = OPENING_BOOK[currentFen];
+                    const randMove = moves[Math.floor(Math.random() * moves.length)];
+                    const validMoves = game.getValidMoves(randMove.r, randMove.c);
+                    const matched = validMoves.find(m => m.r === randMove.to.r && m.c === randMove.to.c);
+                    if (matched) return { score: 0, move: { from: {r: randMove.r, c: randMove.c}, to: matched }, book: true };
+                }
+                let depth = 1;
+                if (this.level >= 3) depth = 2;
+                if (this.level >= 5) depth = 3;
+                if (this.level >= 8) depth = 4;
                 const isMax = (color === 'w');
-                return this.minimax(game, depth, -Infinity, Infinity, isMax, color);
+                return this.minimax(game, depth, -30000, 30000, isMax, color);
             }
+
             evaluate(game) {
                 let score = 0;
                 for(let r=0; r<8; r++) for(let c=0; c<8; c++) {
                     const p = game.board[r][c];
                     if (!p) continue;
-                    const idx = p[0]==='w' ? (r*8+c) : ((7-r)*8+c);
-                    const pstVal = PST[p[1]] ? (PST[p[1]][idx]||0) : 0;
-                    const val = VALUES[p[1]] + pstVal;
-                    score += (p[0] === 'w') ? val : -val;
+                    const type = p[1];
+                    const col = p[0];
+                    const isWhite = col === 'w';
+                    let val = PIECE_VALS[type];
+                    let idx = r * 8 + c;
+                    if (!isWhite) idx = (7 - r) * 8 + c; 
+                    let pst = MG_PST[type] ? MG_PST[type][idx] : 0;
+                    if(isWhite) score += (val + pst);
+                    else score -= (val + pst);
                 }
                 return score;
             }
-            getAllMoves(game, color) {
-                const moves = [];
-                for(let r=0; r<8; r++) for(let c=0; c<8; c++) {
-                    if (game.board[r][c] && game.board[r][c][0] === color) {
-                        game.getValidMoves(r, c).forEach(to => moves.push({ from: {r,c}, to }));
+
+            orderMoves(game, moves) {
+                return moves.sort((a, b) => {
+                    let scoreA = 0, scoreB = 0;
+                    const pA = game.board[a.to.r][a.to.c];
+                    const pB = game.board[b.to.r][b.to.c];
+                    if (pA) scoreA = 10 * PIECE_VALS[pA[1]] - PIECE_VALS[game.board[a.from.r][a.from.c][1]];
+                    if (pB) scoreB = 10 * PIECE_VALS[pB[1]] - PIECE_VALS[game.board[b.from.r][b.from.c][1]];
+                    if (a.to.isPromo) scoreA += 900;
+                    if (b.to.isPromo) scoreB += 900;
+                    return scoreB - scoreA;
+                });
+            }
+
+            quiescence(game, alpha, beta, isMax, qDepth = 0) {
+                if (qDepth > 4) return this.evaluate(game);
+                const standPat = this.evaluate(game);
+                if (isMax) {
+                    if (standPat >= beta) return standPat;
+                    if (standPat > alpha) alpha = standPat;
+                } else {
+                    if (standPat <= alpha) return standPat;
+                    if (standPat < beta) beta = standPat;
+                }
+                const moves = this.getAllMoves(game, isMax ? 'w' : 'b', true); 
+                this.orderMoves(game, moves);
+                for (const move of moves) {
+                    const savedBoard = game.cloneBoard(game.board);
+                    game.executeMoveSilent(move.from, move.to, 'q');
+                    const score = this.quiescence(game, alpha, beta, !isMax, qDepth + 1);
+                    game.board = savedBoard;
+                    if (isMax) {
+                        if (score >= beta) return beta;
+                        if (score > alpha) alpha = score;
+                    } else {
+                        if (score <= alpha) return alpha;
+                        if (score < beta) beta = score;
                     }
                 }
-                return moves.sort((a,b) => (game.board[b.to.r][b.to.c]?1:0) - (game.board[a.to.r][a.to.c]?1:0));
+                return isMax ? alpha : beta;
             }
+
             minimax(game, depth, alpha, beta, isMax, color) {
-                if (depth === 0) return { score: this.evaluate(game) }; 
-                const turn = isMax ? 'w' : 'b';
-                const moves = this.getAllMoves(game, turn);
-                if (moves.length === 0) {
-                    if (game.isCheck(turn, game.board)) return { score: isMax ? -100000 : 100000 };
-                    return { score: 0 };
+                if (depth === 0) {
+                    if (this.level >= 6) return { score: this.quiescence(game, alpha, beta, isMax) };
+                    return { score: this.evaluate(game) }; 
                 }
+                const turn = isMax ? 'w' : 'b';
+                let moves = this.getAllMoves(game, turn);
+                if (moves.length === 0) {
+                    if (game.isCheck(turn, game.board)) return { score: isMax ? -20000 + (10-depth) : 20000 - (10-depth) }; 
+                    return { score: 0 }; 
+                }
+                moves = this.orderMoves(game, moves);
                 let bestMove = null;
                 let bestScore = isMax ? -Infinity : Infinity;
                 for (const move of moves) {
@@ -412,6 +487,18 @@
                 }
                 return { score: bestScore, move: bestMove };
             }
+
+            getAllMoves(game, color, capturesOnly = false) {
+                const moves = [];
+                for(let r=0; r<8; r++) for(let c=0; c<8; c++) {
+                    if (game.board[r][c] && game.board[r][c][0] === color) {
+                        let valid = game.getValidMoves(r, c);
+                        if (capturesOnly) valid = valid.filter(m => game.board[m.r][m.c] !== null);
+                        valid.forEach(to => moves.push({ from: {r,c}, to }));
+                    }
+                }
+                return moves;
+            }
         }
 
         class ChessApp {
@@ -419,18 +506,14 @@
                 this.mode = 'pvp'; this.botLevel = 1; this.playerSide = 'w'; this.timeLimit = 10;
                 this.flipBlack = false; 
                 this.engine = new ChessEngine(2); 
-                this.lang = 'en'; // Default
+                this.lang = 'en'; 
                 this.bindEvents();
                 this.updateText();
-                this.registerSW(); // PWA Service Worker
+                this.registerSW();
             }
             
             registerSW() {
-                if ('serviceWorker' in navigator) {
-                    navigator.serviceWorker.register('./service-worker.js')
-                    .then(reg => console.log('SW Registered'))
-                    .catch(err => console.log('SW Error', err));
-                }
+                if ('serviceWorker' in navigator) navigator.serviceWorker.register('./service-worker.js').catch(console.log);
             }
             
             toggleLanguage() {
@@ -443,9 +526,7 @@
             t(key) { return I18N[this.lang][key] || key; }
             
             updateText() {
-                document.querySelectorAll('[data-key]').forEach(el => {
-                    el.innerText = this.t(el.dataset.key);
-                });
+                document.querySelectorAll('[data-key]').forEach(el => { el.innerText = this.t(el.dataset.key); });
                 this.updateFlipButton();
                 this.updateTopLabel();
             }
@@ -461,8 +542,7 @@
                 click('.theme-btn', b => document.body.className = `style-classic ${b.dataset.theme}`);
                 click('.time-btn', b => this.timeLimit=parseInt(b.dataset.time));
                 
-                const lvlSlider = document.getElementById('bot-level');
-                lvlSlider.oninput = (e) => {
+                document.getElementById('bot-level').oninput = (e) => {
                     this.botLevel = parseInt(e.target.value);
                     document.getElementById('lvl-txt').innerText = this.botLevel;
                     this.updateTopLabel();
@@ -472,22 +552,14 @@
             
             updateTopLabel() {
                 if (!document.getElementById('top-label')) return;
-                const txt = this.mode === 'pvc' 
-                    ? `Bot (${this.t('botLevel')} ${this.botLevel})` 
-                    : this.t('opponent');
+                const txt = this.mode === 'pvc' ? `Bot (${this.t('botLevel')} ${this.botLevel})` : this.t('opponent');
                 document.getElementById('top-label').innerText = txt;
             }
 
-            toggleFlip() {
-                this.flipBlack = !this.flipBlack;
-                this.updateFlipButton();
-            }
-
+            toggleFlip() { this.flipBlack = !this.flipBlack; this.updateFlipButton(); }
             updateFlipButton() {
                 const btn = document.getElementById('flip-btn');
-                const label = this.t('flip');
-                const state = this.flipBlack ? "ON" : "OFF";
-                btn.innerText = `${label}: ${state}`;
+                btn.innerText = `${this.t('flip')}: ${this.flipBlack ? "ON" : "OFF"}`;
                 if(this.flipBlack) btn.classList.add('selected'); else btn.classList.remove('selected');
             }
 
@@ -497,6 +569,8 @@
                 document.getElementById('game-area').classList.add('active');
                 document.getElementById('nav-controls').classList.remove('visible');
                 document.getElementById('eval-bar').classList.remove('visible'); 
+                document.getElementById('suggest-btn').classList.remove('visible'); 
+                this.clearArrow();
                 if(this.mode==='pvc') this.engine.level = this.botLevel;
                 this.updateTopLabel();
                 this.initGame();
@@ -514,10 +588,15 @@
                 this.times={w:this.timeLimit*60,b:this.timeLimit*60}; if(!this.timeLimit) this.times={w:9e5,b:9e5};
                 this.reviewIndex = -1; this.isReviewing = false;
                 
+                // Track clocks for FEN
+                this.halfMove = 0; 
+                this.fullMove = 1;
+
                 this.fullHistory.push({
                     board: this.cloneBoard(this.board),
                     castling: JSON.parse(JSON.stringify(this.castling)),
-                    epSquare: null, move: null, eval: 0, anno: ''
+                    epSquare: null, move: null, eval: 0, anno: '',
+                    hm: 0, fm: 1
                 });
                 this.updateEvalBar(0);
                 this.startClock();
@@ -590,13 +669,19 @@
                 if(to.isPromo && !promoType) { this.promo={from, to}; document.getElementById('promotion-modal').classList.add('active'); return; }
                 const p=this.board[from.r][from.c], cap=this.board[to.r][to.c];
                 const note = this.genNote(from, to, p, cap, to.castle, to.isPromo, promoType);
+                
+                // Update FEN clocks
+                if (p[1] === 'p' || cap) this.halfMove = 0; else this.halfMove++;
+                if (this.turn === 'b') this.fullMove++;
+
                 this.executeMoveSilent(from, to, promoType||'q');
                 this.hist.push(note);
                 this.fullHistory.push({
                     board: this.cloneBoard(this.board),
                     castling: JSON.parse(JSON.stringify(this.castling)),
                     epSquare: this.epSquare ? {...this.epSquare} : null,
-                    move: {from, to, note}, eval: 0, anno: '' 
+                    move: {from, to, note}, eval: 0, anno: '',
+                    hm: this.halfMove, fm: this.fullMove
                 });
                 this.turn = this.turn==='w'?'b':'w';
                 this.lastMove={from, to};
@@ -626,10 +711,11 @@
                 return (p[1]==='p'?(f.c !== t.c ?COLS[f.c]+"x":""):(PIECES[p[0]][p[1]].toUpperCase().replace(/[^A-Z]/g,'')+(c?"x":""))) + COLS[t.c]+(8-t.r) + (isEp?" e.p.":"") + (promo?"="+pt.toUpperCase():"");
             }
             updateEvalBar(score) {
-                let pct = 50 + (score / 1500) * 50; pct = Math.max(5, Math.min(95, pct)); 
+                const s = (typeof score === 'number') ? score : 0;
+                let pct = 50 + (s / 1500) * 50; pct = Math.max(5, Math.min(95, pct)); 
                 document.getElementById('eval-fill').style.height = `${pct}%`;
-                const displayScore = (Math.abs(score) / 100).toFixed(1);
-                document.getElementById('eval-text').innerText = (score >= 0 ? "+" : "-") + displayScore;
+                const displayScore = (Math.abs(s) / 100).toFixed(1);
+                document.getElementById('eval-text').innerText = (s >= 0 ? "+" : "-") + displayScore;
             }
             render() {
                 const b=document.getElementById('board'); b.innerHTML='';
@@ -655,11 +741,13 @@
                             const step = this.fullHistory[this.reviewIndex];
                             if (step.anno && step.move.to.r === r && step.move.to.c === c) {
                                 let cls = '';
+                                let content = step.anno;
                                 if (step.anno === '!!') cls = 'anno-brilliant';
                                 else if (step.anno === '!') cls = 'anno-good';
                                 else if (step.anno === '?') cls = 'anno-mistake';
                                 else if (step.anno === 'X') cls = 'anno-blunder';
-                                if (cls) d.innerHTML += `<div class="annotation ${cls}">${step.anno}</div>`;
+                                else if (step.anno === 'book') { cls = 'anno-book'; content = '📖'; }
+                                if (cls) d.innerHTML += `<div class="annotation ${cls}">${content}</div>`;
                             }
                         }
                         d.onclick=e=>{e.stopPropagation();this.handleSquare(r,c)};
@@ -671,8 +759,13 @@
                     const idx = i/2;
                     const isActive = this.isReviewing && (Math.floor((this.reviewIndex-1)/2) === idx);
                     let wAnno = '', bAnno = '';
-                    if (this.isReviewing && this.fullHistory[i+1]?.anno) wAnno = `<span class="hist-anno">${this.fullHistory[i+1].anno}</span>`;
-                    if (this.isReviewing && this.fullHistory[i+2]?.anno) bAnno = `<span class="hist-anno">${this.fullHistory[i+2].anno}</span>`;
+                    const getAnnoHtml = (step) => {
+                         if (!step?.anno) return '';
+                         if (step.anno === 'book') return `<span class="hist-anno book">📖</span>`;
+                         return `<span class="hist-anno ${step.anno === '!' ? 'good' : step.anno === '?' ? 'bad' : 'blunder'}">${step.anno}</span>`;
+                    };
+                    wAnno = getAnnoHtml(this.fullHistory[i+1]);
+                    bAnno = getAnnoHtml(this.fullHistory[i+2]);
                     h.innerHTML+=`<div class="history-row ${isActive?'active-row':''}" onclick="app.navJump(${i+1})">
                         <div class="history-num">${idx+1}.</div>
                         <div class="history-move">${this.hist[i]}${wAnno}</div>
@@ -693,23 +786,17 @@
                 if (!w) title = this.t('draw');
                 else if (w === 'w') title = this.t('whiteWon');
                 else title = this.t('blackWon');
-
                 let reason = r;
                 if (r === "Resigned") reason = this.t('resigned');
                 if (r === "Checkmate") reason = this.t('checkmate');
                 if (r === "Stalemate") reason = this.t('stalemate');
                 if (r === "time") reason = this.t('time');
-
                 document.getElementById('end-title').innerText = title; 
                 document.getElementById('end-reason').innerText = reason; 
                 document.getElementById('game-over-modal').classList.remove('hidden'); 
             }
-            
             promptResign() { document.getElementById('resign-modal').classList.remove('hidden'); }
-            doResign() { 
-                document.getElementById('resign-modal').classList.add('hidden');
-                this.end(this.turn==='w'?'b':'w', "Resigned"); 
-            }
+            doResign() { document.getElementById('resign-modal').classList.add('hidden'); this.end(this.turn==='w'?'b':'w', "Resigned"); }
 
             undoMove() {
                 if (!this.active || this.isReviewing) return;
@@ -720,19 +807,16 @@
                     else return; 
                 }
                 if (this.fullHistory.length <= steps) return; 
-
-                for(let i=0; i<steps; i++) {
-                    this.fullHistory.pop();
-                    this.hist.pop();
-                    this.turn = this.turn==='w'?'b':'w';
-                }
-
+                for(let i=0; i<steps; i++) { this.fullHistory.pop(); this.hist.pop(); this.turn = this.turn==='w'?'b':'w'; }
                 const prev = this.fullHistory[this.fullHistory.length - 1];
                 this.board = this.cloneBoard(prev.board);
                 this.castling = JSON.parse(JSON.stringify(prev.castling));
                 this.epSquare = prev.epSquare ? {...prev.epSquare} : null;
                 this.lastMove = prev.move ? {from: prev.move.from, to: prev.move.to} : null;
                 this.sel = null; this.moves = [];
+                // Restore counters if stored
+                this.halfMove = prev.hm || 0;
+                this.fullMove = prev.fm || 1;
                 this.render();
             }
 
@@ -742,29 +826,52 @@
                 const anaEngine = new ChessEngine(8);
                 const tempGame = new ChessApp();
                 tempGame.engine = anaEngine;
-                for (let i = 1; i < this.fullHistory.length; i++) {
-                    const prevStep = this.fullHistory[i-1];
-                    const currStep = this.fullHistory[i];
-                    tempGame.board = this.cloneBoard(prevStep.board);
-                    tempGame.castling = JSON.parse(JSON.stringify(prevStep.castling));
-                    tempGame.epSquare = prevStep.epSquare ? {...prevStep.epSquare} : null;
-                    const turn = (i % 2 !== 0) ? 'w' : 'b'; 
-                    const bestObj = anaEngine.getBestMove(tempGame, turn);
-                    const movePlayed = currStep.move;
-                    tempGame.executeMoveSilent(movePlayed.from, movePlayed.to, 'q');
-                    const afterObj = anaEngine.minimax(tempGame, 2, -Infinity, Infinity, turn==='b', turn==='w'?'b':'w');
-                    currStep.eval = afterObj.score;
-                    let diff = (turn === 'w') ? (bestObj.score - afterObj.score) : (afterObj.score - bestObj.score);
-                    if (diff < 20 && movePlayed.from.r === bestObj.move.from.r && movePlayed.to.r === bestObj.move.to.r) currStep.anno = '!!';
-                    else if (diff < 50) currStep.anno = '';
-                    else if (diff < 150) currStep.anno = '!';
-                    else if (diff < 300) currStep.anno = '?';
-                    else currStep.anno = 'X';
-                    if (i % 2 === 0) await new Promise(r => setTimeout(r, 0));
+
+                try {
+                    for (let i = 1; i < this.fullHistory.length; i++) {
+                        const prevStep = this.fullHistory[i-1];
+                        const currStep = this.fullHistory[i];
+                        tempGame.board = this.cloneBoard(prevStep.board);
+                        tempGame.castling = JSON.parse(JSON.stringify(prevStep.castling));
+                        tempGame.epSquare = prevStep.epSquare ? {...prevStep.epSquare} : null;
+                        const turn = (i % 2 !== 0) ? 'w' : 'b';
+                        
+                        const fen = generateSimpleFEN(tempGame.board, turn, tempGame.castling);
+                        let isBook = false;
+                        if (OPENING_BOOK[fen]) {
+                            const bookMoves = OPENING_BOOK[fen];
+                            const played = currStep.move;
+                            if (bookMoves.some(bm => bm.r === played.from.r && bm.c === played.from.c && bm.to.r === played.to.r && bm.to.c === played.to.c)) isBook = true;
+                        }
+
+                        if (isBook) { currStep.anno = 'book'; currStep.eval = 0; } 
+                        else {
+                            const bestObj = anaEngine.getBestMove(tempGame, turn);
+                            const movePlayed = currStep.move;
+                            tempGame.executeMoveSilent(movePlayed.from, movePlayed.to, 'q');
+                            const afterObj = anaEngine.minimax(tempGame, 2, -Infinity, Infinity, turn==='b', turn==='w'?'b':'w');
+                            currStep.eval = afterObj.score;
+                            
+                            if (bestObj && afterObj) {
+                                let diff = (turn === 'w') ? (bestObj.score - afterObj.score) : (afterObj.score - bestObj.score);
+                                if (diff < 20 && movePlayed.from.r === bestObj.move.from.r && movePlayed.to.r === bestObj.move.to.r) currStep.anno = '!!';
+                                else if (diff < 50) currStep.anno = '';
+                                else if (diff < 150) currStep.anno = '!';
+                                else if (diff < 300) currStep.anno = '?';
+                                else currStep.anno = 'X';
+                            }
+                        }
+                        if (i % 2 === 0) await new Promise(r => setTimeout(r, 0));
+                    }
+                } catch (e) {
+                    console.error("Analysis interrupted", e);
                 }
+                
                 document.getElementById('loading-overlay').classList.add('hidden');
                 document.getElementById('nav-controls').classList.add('visible');
+                document.getElementById('suggest-btn').classList.add('visible'); 
                 document.getElementById('eval-bar').classList.add('visible'); 
+                
                 this.isReviewing = true;
                 this.navStart();
             }
@@ -778,13 +885,118 @@
                 this.epSquare = step.epSquare ? {...step.epSquare} : null;
                 this.lastMove = step.move ? {from: step.move.from, to: step.move.to} : null;
                 this.updateEvalBar(step.eval);
+                this.clearArrow();
                 this.render();
             }
+
+            suggestMove() {
+                if (!this.isReviewing) return;
+                const toMove = (this.reviewIndex % 2 === 0) ? 'w' : 'b';
+                const tempGame = new ChessApp();
+                tempGame.board = this.cloneBoard(this.board);
+                tempGame.castling = JSON.parse(JSON.stringify(this.castling));
+                tempGame.epSquare = this.epSquare;
+                
+                const suggestion = new ChessEngine(8).getBestMove(tempGame, toMove);
+                if (suggestion && suggestion.move) {
+                    this.drawArrow(suggestion.move.from, suggestion.move.to);
+                }
+            }
+
+            drawArrow(from, to) {
+                this.clearArrow();
+                const layer = document.getElementById('arrow-layer');
+                const isWhite = this.playerSide === 'w';
+                
+                const getCoord = (r, c) => {
+                    const y = isWhite ? r : 7-r;
+                    const x = isWhite ? c : 7-c;
+                    return { x: x * 12.5 + 6.25, y: y * 12.5 + 6.25 };
+                };
+                const start = getCoord(from.r, from.c);
+                const end = getCoord(to.r, to.c);
+
+                const arrow = document.createElementNS("http://www.w3.org/2000/svg", "line");
+                arrow.setAttribute("x1", start.x);
+                arrow.setAttribute("y1", start.y);
+                arrow.setAttribute("x2", end.x);
+                arrow.setAttribute("y2", end.y);
+                arrow.setAttribute("stroke", "#26c281");
+                arrow.setAttribute("stroke-width", "2");
+                arrow.setAttribute("marker-end", "url(#arrowhead)");
+                arrow.setAttribute("opacity", "0.8");
+                layer.appendChild(arrow);
+            }
+
+            clearArrow() { document.getElementById('arrow-layer').innerHTML = ''; }
             navStart() { this.setReviewState(0); }
             navEnd() { this.setReviewState(this.fullHistory.length - 1); }
             navPrev() { this.setReviewState(this.reviewIndex - 1); }
             navNext() { this.setReviewState(this.reviewIndex + 1); }
             navJump(idx) { if (this.isReviewing) this.setReviewState(idx); }
+
+            // --- EXPORT FEATURES ---
+            showExportMenu() {
+                const pgn = this.generatePGN();
+                document.getElementById('pgn-area').value = pgn;
+                
+                const fen = this.generateCurrentFEN();
+                document.getElementById('fen-area').value = fen;
+                
+                document.getElementById('export-modal').classList.remove('hidden');
+            }
+            
+            generatePGN() {
+                let pgn = `[Event "Chessy Game"]\n[Site "Chessy Web App"]\n[Date "${new Date().toISOString().split('T')[0]}"]\n`;
+                pgn += `[White "${this.playerSide==='w'?'Human':'Bot'}"]\n[Black "${this.playerSide==='b'?'Human':'Bot'}"]\n[Result "*"]\n\n`;
+                for(let i=0; i<this.hist.length; i+=2) {
+                    pgn += `${Math.floor(i/2)+1}. ${this.hist[i]} `;
+                    if(this.hist[i+1]) pgn += `${this.hist[i+1]} `;
+                }
+                return pgn.trim();
+            }
+
+            generateCurrentFEN() {
+                // Reuse logic from generateSimpleFEN but add clocks
+                const board = this.board;
+                const turn = this.isReviewing ? ((this.reviewIndex % 2 === 0) ? 'w' : 'b') : this.turn;
+                // Note: reviewing FENs uses stored board, so this works if we use this.board
+                // But we need to be careful about state if reviewing
+                
+                let fen = generateSimpleFEN(this.board, turn, this.castling);
+                
+                // Add En Passant
+                if (this.epSquare) {
+                    fen += " " + COLS[this.epSquare.c] + (8 - this.epSquare.r);
+                } else {
+                    fen += " -";
+                }
+
+                // Add Clocks (Approximated for review, exact for current)
+                // If reviewing, we use stored history step if available
+                let hm = this.halfMove;
+                let fm = this.fullMove;
+                if (this.isReviewing && this.fullHistory[this.reviewIndex]) {
+                    hm = this.fullHistory[this.reviewIndex].hm || 0;
+                    fm = this.fullHistory[this.reviewIndex].fm || 1;
+                }
+                fen += ` ${hm} ${fm}`;
+                return fen;
+            }
+
+            copyPGN() {
+                const txt = document.getElementById('pgn-area');
+                txt.select();
+                document.execCommand('copy');
+                alert("PGN Copied to clipboard!");
+            }
+
+            copyFEN() {
+                const txt = document.getElementById('fen-area');
+                txt.select();
+                document.execCommand('copy');
+                alert("FEN Copied to clipboard!");
+            }
         }
         const app = new ChessApp();
     </script>
